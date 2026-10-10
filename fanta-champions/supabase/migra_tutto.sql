@@ -1677,7 +1677,7 @@ with cal(md, ko, home, away) as (values
   (8, '2027-01-27 21:00', 'Villarreal', 'Manchester United'),
   (8, '2027-01-27 21:00', 'Slovan Bratislava', 'Inter')
 )
-select m.id, h.id, a.id, c.ko at time zone 'Europe/Rome'
+select m.id, h.id, a.id, (c.ko::timestamp) at time zone 'Europe/Rome'
 from cal c
 join public.matchdays m on m.number = c.md
 join public.clubs h on h.name = c.home
