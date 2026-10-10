@@ -1527,9 +1527,11 @@ create policy "fixtures_admin" on public.fixtures for all
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin))
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin));
 
-drop table if exists public._cal;
-create table public._cal (md int, ko timestamp, home text, away text);
-insert into _cal values
+delete from public.fixtures f using public.matchdays m
+where f.matchday_id = m.id and m.number between 1 and 8;
+
+insert into public.fixtures (matchday_id, home_club_id, away_club_id, kickoff)
+with cal(md, ko, home, away) as (values
   (1, '2026-09-08 18:45', 'AEK Atene', 'LASK'),
   (1, '2026-09-08 18:45', 'Club Brugge', 'Aston Villa'),
   (1, '2026-09-08 21:00', 'Borussia Dortmund', 'Villarreal'),
@@ -1673,19 +1675,13 @@ insert into _cal values
   (8, '2027-01-27 21:00', 'Slavia Praga', 'Aston Villa'),
   (8, '2027-01-27 21:00', 'Napoli', 'Viking'),
   (8, '2027-01-27 21:00', 'Villarreal', 'Manchester United'),
-  (8, '2027-01-27 21:00', 'Slovan Bratislava', 'Inter');
-
-delete from public.fixtures f using public.matchdays m
-where f.matchday_id = m.id and m.number between 1 and 8;
-
-insert into public.fixtures (matchday_id, home_club_id, away_club_id, kickoff)
+  (8, '2027-01-27 21:00', 'Slovan Bratislava', 'Inter')
+)
 select m.id, h.id, a.id, c.ko at time zone 'Europe/Rome'
-from _cal c
+from cal c
 join public.matchdays m on m.number = c.md
 join public.clubs h on h.name = c.home
 join public.clubs a on a.name = c.away;
-
-drop table public._cal;
 
 alter table public.settings
   add column if not exists squad_p        int not null default 3,
