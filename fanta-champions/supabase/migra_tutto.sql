@@ -349,6 +349,7 @@ returns void language sql security definer set search_path = public as $$
   delete from league_members where league_id = p_league and user_id = auth.uid();
 $$;
 
+drop view if exists public.standings;
 create or replace view public.standings with (security_invoker = true) as
 select p.id as user_id, p.username, p.team_name,
        coalesce(sum(r.total), 0)::numeric(7,1) as total,
