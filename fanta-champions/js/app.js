@@ -10,11 +10,15 @@ import { renderLeagues } from './views/leagues.js';
 import { renderAdmin } from './views/admin.js';
 import { renderProfile } from './views/profile.js';
 import { renderCredits } from './views/credits.js';
+import { renderCalendar } from './views/calendar.js';
+import { renderSquad } from './views/squad.js';
 
 const routes = {
   '': renderHome,
   formazione: renderLineup,
   classifica: renderStandings,
+  calendario: renderCalendar,
+  rosa: renderSquad,
   leghe: renderLeagues,
   admin: renderAdmin,
   profilo: renderProfile,
@@ -29,11 +33,15 @@ const ICONS = {
   users: I('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>'),
   gear: I('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
   user: I('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+  calendar: I('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/>'),
+  squad: I('<circle cx="12" cy="7" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/><path d="M8 7h8"/>'),
 };
 
 const NAV = [
   ['', 'home', 'Home'],
+  ['rosa', 'squad', 'Rosa'],
   ['formazione', 'pitch', 'Formazione'],
+  ['calendario', 'calendar', 'Calendario'],
   ['classifica', 'trophy', 'Classifica'],
   ['leghe', 'users', 'Leghe'],
   ['profilo', 'user', 'Profilo'],
@@ -43,7 +51,7 @@ let cleanup = null;
 
 function renderNav(current) {
   const items = [...NAV];
-  if (state.profile?.is_admin) items.splice(4, 0, ['admin', 'gear', 'Admin']);
+  if (state.profile?.is_admin) items.splice(items.length - 1, 0, ['admin', 'gear', 'Admin']);
   const link = ([r, icon, label]) =>
     `<a href="#/${r}" class="${current === r ? 'active' : ''}"><span class="ni">${ICONS[icon]}</span><span>${label}</span></a>`;
   const html = state.session ? items.map(link).join('') : '';
@@ -94,6 +102,7 @@ async function init() {
   });
 
   window.addEventListener('hashchange', router);
+  document.addEventListener('profile-changed', router);
   router();
 }
 

@@ -21,3 +21,20 @@ export const CLUB_COLORS = {
 };
 
 export const clubColors = (name) => CLUB_COLORS[name] || ['#8a94a6', '#ffffff'];
+
+// Sigle a 3 lettere per avversari e calendario
+const CLUB_SHORT = {
+  'Paris Saint-Germain': 'PSG', 'Bayern Monaco': 'BAY', 'Real Madrid': 'RMA', 'Liverpool': 'LIV',
+  'Inter': 'INT', 'Manchester City': 'MCI', 'Arsenal': 'ARS', 'Barcellona': 'BAR',
+  'Atlético Madrid': 'ATM', 'Borussia Dortmund': 'BVB', 'Roma': 'ROM', 'Sporting CP': 'SCP',
+  'Aston Villa': 'AVL', 'Porto': 'POR', 'Manchester United': 'MUN', 'Club Brugge': 'BRU',
+  'Real Betis': 'BET', 'PSV Eindhoven': 'PSV', 'Feyenoord': 'FEY', 'Lille': 'LIL',
+  'Bodø/Glimt': 'BOD', 'Napoli': 'NAP', 'RB Lipsia': 'RBL', 'Villarreal': 'VIL',
+  'Fenerbahçe': 'FEN', 'Shakhtar Donetsk': 'SHA', 'Galatasaray': 'GAL', 'Slavia Praga': 'SLA',
+  'Slovan Bratislava': 'SLO', 'Stoccarda': 'STO', 'AEK Atene': 'AEK', 'LASK': 'LAS',
+  'Como': 'COM', 'Lens': 'RCL', 'Viking': 'VIK', 'Sabah': 'SAB',
+};
+export const clubShort = (club) => CLUB_SHORT[club?.name] || club?.short || (club?.name || '?').slice(0, 3).toUpperCase();
+
+// Pallino nei colori della squadra (calendario)
+export const clubDot = (name) => { const [a, b] = clubColors(name); return `<span class="club-dot" style="--c1:${a};--c2:${b}"></span>`; };

@@ -46,6 +46,16 @@ export function fmtDate(d) {
   });
 }
 
+// "mar 13/10 21:00"
+export function fmtKick(d) {
+  const x = new Date(d);
+  const day = x.toLocaleDateString('it-IT', { weekday: 'short' }).replace('.', '');
+  const p = (n) => String(n).padStart(2, '0');
+  return `${day} ${p(x.getDate())}/${p(x.getMonth() + 1)} ${p(x.getHours())}:${p(x.getMinutes())}`;
+}
+
+export const fmtTime = (d) => new Date(d).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
 export function countdown(deadline) {
   const ms = new Date(deadline) - Date.now();
   if (ms <= 0) return 'chiusa';
