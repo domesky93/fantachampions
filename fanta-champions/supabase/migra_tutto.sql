@@ -1897,6 +1897,7 @@ update public.settings set
 where id = 1;
 
 -- === 09 SETTINGS VIEW ===
+drop view if exists public.settings_public;
 create or replace view public.settings_public with (security_invoker = true) as
   select id, budget, max_per_club, max_subs, bonus,
          squad_p, squad_d, squad_c, squad_a, squad_deadline,
