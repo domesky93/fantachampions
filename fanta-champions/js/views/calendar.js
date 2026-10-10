@@ -2,6 +2,7 @@ import { getMatchdays, getClubs, getFixtures, pickCurrentMatchday } from '../api
 import { esc, fmtDate, fmtTime } from '../ui.js';
 import { clubDot, clubShort } from '../clubs.js';
 
+// Calendario: partite reali di Champions abbinate alle giornate del fanta
 export async function renderCalendar(app, params) {
   const [mds, clubs, fixtures] = await Promise.all([getMatchdays(), getClubs(), getFixtures()]);
   if (!mds.length) { app.innerHTML = '<div class="card">Nessuna giornata disponibile.</div>'; return; }

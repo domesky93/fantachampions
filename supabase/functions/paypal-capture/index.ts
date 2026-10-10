@@ -13,22 +13,26 @@ function json(data, status = 200) {
   });
 }
 
-async function getPayPalAccessToken() {
-  const clientId = Deno.env.get("PAYPAL_CLIENT_ID");
-  const clientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
-  const mode = Deno.env.get("PAYPAL_MODE") || "sandbox";
+async function getPayPalConfig(supabase) {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("paypal_client_id, paypal_client_secret, paypal_mode")
+    .eq("id", 1)
+    .single();
+
+  if (error || !data?.paypal_client_id || !data?.paypal_client_secret) {
+    throw new Error("PayPal non configurato");
+  }
+
+  const mode = data.paypal_mode || "sandbox";
   const baseUrl = mode === "live"
     ? "https://api-m.paypal.com"
     : "https://api-m.sandbox.paypal.com";
 
-  if (!clientId || !clientSecret) {
-    throw new Error("PayPal non configurato");
-  }
-
   const resp = await fetch(`${baseUrl}/v1/oauth2/token`, {
     method: "POST",
     headers: {
-      "Authorization": "Basic " + btoa(`${clientId}:${clientSecret}`),
+      "Authorization": "Basic " + btoa(`${data.paypal_client_id}:${data.paypal_client_secret}`),
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: "grant_type=client_credentials",
@@ -38,8 +42,8 @@ async function getPayPalAccessToken() {
     throw new Error("Errore autenticazione PayPal");
   }
 
-  const data = await resp.json();
-  return { accessToken: data.access_token, baseUrl };
+  const tokendata = await resp.json();
+  return { accessToken: tokendata.access_token, baseUrl };
 }
 
 Deno.serve(async (req) => {
@@ -71,9 +75,8 @@ Deno.serve(async (req) => {
       return json({ error: "Order ID mancante" }, 400);
     }
 
-    const { accessToken, baseUrl } = await getPayPalAccessToken();
+    const { accessToken, baseUrl } = await getPayPalConfig(supabase);
 
-    // Verifica che l'ordine appartenga all'utente
     const orderResp = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}`, {
       headers: { "Authorization": `Bearer ${accessToken}` },
     });
@@ -89,7 +92,6 @@ Deno.serve(async (req) => {
       return json({ error: "Ordine non valido" }, 403);
     }
 
-    // Cattura il pagamento
     const captureResp = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}/capture`, {
       method: "POST",
       headers: {
@@ -111,7 +113,6 @@ Deno.serve(async (req) => {
       return json({ error: "Pagamento non completato" }, 400);
     }
 
-    // Marca l'utente come abbonato
     const { error: updateError } = await supabase
       .from("profiles")
       .update({
@@ -129,6 +130,6 @@ Deno.serve(async (req) => {
     return json({ success: true, orderId });
   } catch (err) {
     console.error("paypal-capture error:", err);
-    return json({ error: "Errore durante la conferma del pagamento" }, 500);
+    return json({ error: err.message || "Errore durante la conferma del pagamento" }, 500);
   }
 });

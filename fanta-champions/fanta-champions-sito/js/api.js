@@ -1,5 +1,5 @@
 // Accesso ai dati Supabase
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.100.0/+esm';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -7,11 +7,8 @@ export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 export const state = { session: null, profile: null };
 
 // Lancia l'errore se la chiamata Supabase fallisce
-// Dopo 20 secondi senza risposta mostra un errore invece di restare su "Caricamento"
 export async function q(promise) {
-  let timer;
-  const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('Il server non risponde. Controlla la connessione e ricarica la pagina.')), 20000); });
-  const { data, error } = await Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+  const { data, error } = await promise;
   if (error) throw error;
   return data;
 }
@@ -45,7 +42,7 @@ export async function getPlayers(force = false) {
 export function invalidatePlayers() { _players = null; _clubs = null; }
 
 export async function getSettings() {
-  return q(sb.from('settings').select('*').eq('id', 1).single());
+  return q(sb.from('settings_public').select('*').eq('id', 1).single());
 }
 
 export async function getMatchdays() {
@@ -54,19 +51,9 @@ export async function getMatchdays() {
 
 // Partite reali (tutte o di una giornata). Se la tabella non esiste ancora restituisce [].
 export async function getFixtures(matchdayId = null) {
-  let qb = sb.from('fixtures').select('*').order('kickoff').order('id');
+  let qb = sb.from('fixtures').select('*').order('kickoff');
   if (matchdayId) qb = qb.eq('matchday_id', matchdayId);
   try { return await q(qb); } catch (e) { console.warn('Calendario non disponibile:', e.message); return []; }
-}
-
-// club_id -> { opp, home, kickoff, fixture } per una lista di partite
-export function fixturesByClub(fixtures) {
-  const m = new Map();
-  fixtures.forEach((f) => {
-    m.set(f.home_club_id, { opp: f.away_club_id, home: true, kickoff: f.kickoff, fixture: f });
-    m.set(f.away_club_id, { opp: f.home_club_id, home: false, kickoff: f.kickoff, fixture: f });
-  });
-  return m;
 }
 
 // club_id -> prossima partita (la prima non ancora iniziata)

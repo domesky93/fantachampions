@@ -1,9 +1,9 @@
-import { sb, q, state, fetchAll, getMatchdays, getClubs, getPlayers, getSettings, invalidatePlayers } from '../api.js';
+import { sb, q, state, fetchAll, getMatchdays, getClubs, getPlayers, getSettings, getFixtures, invalidatePlayers } from '../api.js';
 import { $, $$, esc, roleBadge, toast, errMsg, toLocalInput, fmtDate, parseCSV, norm, face } from '../ui.js';
 import { findPhotos } from '../photos.js';
 import { clubColors } from '../clubs.js';
 
-const TABS = [['giornate', 'Giornate'], ['voti', 'Voti e calcolo'], ['giocatori', 'Giocatori'], ['impostazioni', 'Impostazioni']];
+const TABS = [['giornate', 'Giornate'], ['partite', 'Partite'], ['voti', 'Voti e calcolo'], ['giocatori', 'Giocatori'], ['impostazioni', 'Impostazioni']];
 
 export async function renderAdmin(app, params) {
   if (!state.profile?.is_admin) { app.innerHTML = '<div class="card">Area riservata all\'amministratore.</div>'; return; }
@@ -14,6 +14,7 @@ export async function renderAdmin(app, params) {
     <div id="admin-body"><div class="loading">Caricamento…</div></div>`;
   const body = $('#admin-body');
   if (tab === 'giornate') return matchdaysTab(body);
+  if (tab === 'partite') return fixturesTab(body, params[1]);
   if (tab === 'voti') return votesTab(body, params[1]);
   if (tab === 'giocatori') return playersTab(body);
   if (tab === 'impostazioni') return settingsTab(body);
@@ -65,6 +66,69 @@ async function matchdaysTab(body) {
       await q(sb.from('matchdays').insert({ number: +f.number.value, name: f.name.value, deadline: new Date(f.deadline.value).toISOString() }));
       toast('Giornata aggiunta'); matchdaysTab(body);
     } catch (err) { toast(errMsg(err), 'err'); }
+  };
+}
+
+// ---------------------------------------------------------------- PARTITE REALI
+async function fixturesTab(body, mdParam) {
+  const [mds, clubs] = await Promise.all([getMatchdays(), getClubs()]);
+  const md = mds.find((m) => String(m.id) === mdParam) || mds.find((m) => m.status === 'aperta' && new Date(m.deadline) > Date.now()) || mds[0];
+  if (!md) { body.innerHTML = '<div class="card">Crea prima una giornata.</div>'; return; }
+  const fixtures = await getFixtures(md.id);
+  const clubSel = (name, val) => `<select name="${name}">${clubs.map((c) => `<option value="${c.id}" ${c.id === val ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>`;
+  const used = new Set(fixtures.flatMap((f) => [f.home_club_id, f.away_club_id]));
+  const resting = clubs.filter((c) => !used.has(c.id));
+
+  body.innerHTML = `
+    <div class="card">
+      <div class="form-row"><label>Giornata<select id="fx-md">${mds.map((m) => `<option value="${m.id}" ${m.id === md.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></label></div>
+      <p class="muted small">${fixtures.length} partite · scadenza formazioni ${fmtDate(md.deadline)}. Il risultato è facoltativo (serve per il calendario).
+        ${fixtures.length && resting.length ? `<br>Squadre senza partita: ${resting.map((c) => esc(c.name)).join(', ')}` : ''}</p>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Casa</th><th>Trasferta</th><th>Calcio d'inizio</th><th>Ris.</th><th></th></tr></thead>
+        <tbody>${fixtures.map((f) => `<tr data-id="${f.id}">
+          <td>${clubSel('home', f.home_club_id)}</td><td>${clubSel('away', f.away_club_id)}</td>
+          <td><input name="kickoff" type="datetime-local" value="${toLocalInput(f.kickoff)}"></td>
+          <td class="nowrap"><input class="nin" name="hs" type="number" min="0" value="${f.home_score ?? ''}"> - <input class="nin" name="as" type="number" min="0" value="${f.away_score ?? ''}"></td>
+          <td class="nowrap"><button class="btn btn-sm btn-primary" data-save>Salva</button> <button class="btn btn-sm btn-danger-ghost" data-del>✕</button></td>
+        </tr>`).join('') || '<tr><td colspan="5" class="muted">Nessuna partita: aggiungile qui sotto oppure carica il calendario con l\'SQL.</td></tr>'}</tbody>
+      </table></div>
+    </div>
+    <form class="card" id="fx-new"><h2>Aggiungi partita</h2>
+      <div class="form-row">
+        <label>Casa${clubSel('home', resting[0]?.id)}</label>
+        <label>Trasferta${clubSel('away', resting[1]?.id)}</label>
+        <label>Calcio d'inizio<input name="kickoff" type="datetime-local" required value="${toLocalInput(md.deadline)}"></label>
+      </div>
+      <button class="btn btn-primary">Aggiungi a ${esc(md.name)}</button>
+    </form>`;
+
+  const num = (v) => (v === '' ? null : +v);
+  $('#fx-md').onchange = (e) => { location.hash = `#/admin/partite/${e.target.value}`; };
+  $$('tr[data-id]', body).forEach((tr) => {
+    const id = +tr.dataset.id;
+    $('[data-save]', tr).onclick = async () => {
+      try {
+        await q(sb.from('fixtures').update({
+          home_club_id: +$('[name=home]', tr).value, away_club_id: +$('[name=away]', tr).value,
+          kickoff: new Date($('[name=kickoff]', tr).value).toISOString(),
+          home_score: num($('[name=hs]', tr).value), away_score: num($('[name=as]', tr).value),
+        }).eq('id', id));
+        toast('Partita salvata');
+      } catch (e) { toast(errMsg(e), 'err'); }
+    };
+    $('[data-del]', tr).onclick = async () => {
+      if (!confirm('Eliminare la partita?')) return;
+      try { await q(sb.from('fixtures').delete().eq('id', id)); fixturesTab(body, String(md.id)); } catch (e) { toast(errMsg(e), 'err'); }
+    };
+  });
+  $('#fx-new').onsubmit = async (e) => {
+    e.preventDefault(); const f = e.target;
+    if (f.home.value === f.away.value) return toast('Scegli due squadre diverse', 'err');
+    try {
+      await q(sb.from('fixtures').insert({ matchday_id: md.id, home_club_id: +f.home.value, away_club_id: +f.away.value, kickoff: new Date(f.kickoff.value).toISOString() }));
+      toast('Partita aggiunta'); fixturesTab(body, String(md.id));
+    } catch (err) { toast(/duplicate|unique/i.test(errMsg(err)) ? 'Una delle due squadre ha già una partita in questa giornata' : errMsg(err), 'err'); }
   };
 }
 
@@ -320,10 +384,25 @@ async function settingsTab(body) {
   body.innerHTML = `
     <form class="card" id="st"><h2>Regole</h2>
       <div class="form-row">
-        <label>Budget per formazione<input name="budget" type="number" min="0" value="${s.budget ?? ''}" placeholder="vuoto = nessun limite"></label>
+        <label>Budget rosa<input name="budget" type="number" min="0" value="${s.budget ?? ''}" placeholder="vuoto = nessun limite"></label>
         <label>Max giocatori stessa squadra<input name="max_per_club" type="number" min="1" value="${s.max_per_club ?? ''}" placeholder="vuoto = nessun limite"></label>
         <label>Max sostituzioni<input name="max_subs" type="number" min="0" max="7" value="${s.max_subs}"></label>
       </div>
+      ${s.squad_p !== undefined ? `
+      <h3>Rosa e mercato</h3>
+      <div class="form-row wrap">
+        <label>Portieri<input name="squad_p" type="number" min="1" value="${s.squad_p}"></label>
+        <label>Difensori<input name="squad_d" type="number" min="1" value="${s.squad_d}"></label>
+        <label>Centrocampisti<input name="squad_c" type="number" min="1" value="${s.squad_c}"></label>
+        <label>Attaccanti<input name="squad_a" type="number" min="1" value="${s.squad_a}"></label>
+      </div>
+      <div class="form-row wrap">
+        <label>Rose libere fino a<input name="squad_deadline" type="datetime-local" value="${s.squad_deadline ? toLocalInput(s.squad_deadline) : ''}"></label>
+        <label>Mercato dal<input name="market_from" type="datetime-local" value="${s.market_from ? toLocalInput(s.market_from) : ''}"></label>
+        <label>Mercato fino al<input name="market_to" type="datetime-local" value="${s.market_to ? toLocalInput(s.market_to) : ''}"></label>
+        <label>Cambi al mercato<input name="market_max" type="number" min="0" max="25" value="${s.market_max}"></label>
+      </div>
+      <p class="muted small">Dopo "Rose libere fino a" la rosa resta bloccata; si può cambiare solo tra "Mercato dal" e "Mercato fino al".</p>` : '<p class="notice">Esegui <code>rosa-e-mercato.sql</code> in Supabase per attivare la rosa da 25 e il mercato.</p>'}
       <h3>Bonus e malus</h3>
       <div class="form-row wrap">${B.map(([k, l]) => `<label>${l}<input name="b_${k}" type="number" step="0.5" value="${s.bonus[k]}"></label>`).join('')}</div>
       <button class="btn btn-primary">Salva impostazioni</button>
@@ -337,6 +416,13 @@ async function settingsTab(body) {
         budget: f.budget.value === '' ? null : +f.budget.value,
         max_per_club: f.max_per_club.value === '' ? null : +f.max_per_club.value,
         max_subs: +f.max_subs.value, bonus,
+        ...(s.squad_p !== undefined ? {
+          squad_p: +f.squad_p.value, squad_d: +f.squad_d.value, squad_c: +f.squad_c.value, squad_a: +f.squad_a.value,
+          squad_deadline: f.squad_deadline.value ? new Date(f.squad_deadline.value).toISOString() : null,
+          market_from: f.market_from.value ? new Date(f.market_from.value).toISOString() : null,
+          market_to: f.market_to.value ? new Date(f.market_to.value).toISOString() : null,
+          market_max: +f.market_max.value,
+        } : {}),
       }).eq('id', 1));
       toast('Impostazioni salvate');
     } catch (err) { toast(errMsg(err), 'err'); }

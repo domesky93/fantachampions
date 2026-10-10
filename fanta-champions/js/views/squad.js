@@ -4,6 +4,7 @@ import { clubColors, clubShort } from '../clubs.js';
 
 const ROLE_PLURAL = { P: 'Portieri', D: 'Difensori', C: 'Centrocampisti', A: 'Attaccanti' };
 
+// La rosa da 25: si compra all'inizio e resta fino alla fine dei gironi (+1 mercato)
 export async function renderSquad(app) {
   const uid = state.session.user.id;
   const [players, clubs, settings, fixtures, squad] = await Promise.all([
@@ -28,6 +29,7 @@ export async function renderSquad(app) {
   const phase = squadPhase(settings, savedIds.length > 0);
   const editable = phase !== 'bloccata';
 
+  // rosa di partenza del mercato (per contare i cambi)
   const row = squad.row;
   const base = phase === 'mercato' && row?.market_base && row.market_base_at && new Date(row.market_base_at) >= new Date(settings.market_from)
     ? new Set(row.market_base) : new Set(savedIds);
@@ -41,6 +43,7 @@ export async function renderSquad(app) {
     .sort((a, b) => (pById.get(b)?.price || 0) - (pById.get(a)?.price || 0));
   const changes = () => sel.filter((id) => !base.has(id)).length;
 
+  // "vs INT · mar 13/10 21:00" della prossima partita
   const nextTag = (p) => {
     const o = nextBy.get(p.club_id);
     if (!fixtures.length) return '';
@@ -134,6 +137,7 @@ export async function renderSquad(app) {
     const chosen = new Set(sel);
     const counts = new Map();
     sel.forEach((id) => { const c = pById.get(id)?.club_id; counts.set(c, (counts.get(c) || 0) + 1); });
+    // lascia almeno 1 credito per ogni posto ancora vuoto
     const emptyAfter = total - sel.length - 1;
     const maxSpend = budget ? budget - cost() - Math.max(0, emptyAfter) : Infinity;
     const changesLeft = phase === 'mercato' ? settings.market_max - changes() : Infinity;
@@ -182,9 +186,9 @@ export async function renderSquad(app) {
     const btn = $('#save'); btn.disabled = true;
     try {
       await q(sb.rpc('save_squad', { p_players: sel }));
-      toast('Rosa salvata');
+      toast('Rosa salvata ✅');
       dirty = false;
-      window.dispatchEvent(new HashChangeEvent('hashchange'));
+      window.dispatchEvent(new HashChangeEvent('hashchange')); // ricarica la pagina della rosa
     } catch (e) { toast(errMsg(e), 'err'); btn.disabled = false; }
   }
 

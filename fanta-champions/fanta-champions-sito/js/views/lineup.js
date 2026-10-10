@@ -25,13 +25,13 @@ export async function renderLineup(app, params) {
   const uid = state.session.user.id;
   const [mds, players, clubs, settings, squad] = await Promise.all([getMatchdays(), getPlayers(), getClubs(), getSettings(), getSquad(uid)]);
   if (!mds.length) { app.innerHTML = '<div class="card">Nessuna giornata disponibile.</div>'; return; }
-  if (squadIds.size === 0) { app.innerHTML = '<div class="card"><h2>Rosa vuota</h2><p>Devi prima creare la tua rosa. Vai alla sezione <a href="#/rosa">Rosa</a>.</p></div>'; return; }
 
   const md = mds.find((m) => String(m.id) === params[0]) || pickCurrentMatchday(mds);
   const pById = new Map(players.map((p) => [p.id, p]));
   const cById = new Map(clubs.map((c) => [c.id, c]));
   const squadIds = new Set(squad.players.map((r) => r.player_id));
   const squadPlayers = players.filter((p) => squadIds.has(p.id));
+  if (squadIds.size === 0) { app.innerHTML = '<div class="card"><h2>Rosa vuota</h2><p>Devi prima creare la tua rosa. Vai alla sezione <a href="#/rosa">Rosa</a>.</p></div>'; return; }
   const open = md.status === 'aperta' && new Date(md.deadline) > Date.now();
 
   // formazione salvata + eventuale risultato

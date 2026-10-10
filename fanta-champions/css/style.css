@@ -186,6 +186,13 @@ input[type=file] { padding: 8px; background: var(--soft); }
   box-shadow: inset 0 0 0 2px rgba(255,255,255,.35);
 }
 
+/* badge stemmi (classifiche, leghe) */
+.badge { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; overflow: hidden; background: var(--soft); border: 1px solid var(--line); }
+.badge img { width: 100%; height: 100%; object-fit: cover; }
+.badge svg { width: 100%; height: 100%; }
+.badge-md { width: 38px; height: 38px; }
+.badge-sm { width: 28px; height: 28px; }
+
 /* ------------------------------------------------------------ home */
 .hero {
   position: relative; overflow: hidden; border-radius: 22px; padding: 22px; margin-bottom: 16px; color: #fff;

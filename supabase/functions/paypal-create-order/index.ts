@@ -13,22 +13,26 @@ function json(data, status = 200) {
   });
 }
 
-async function getPayPalAccessToken() {
-  const clientId = Deno.env.get("PAYPAL_CLIENT_ID");
-  const clientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
-  const mode = Deno.env.get("PAYPAL_MODE") || "sandbox";
+async function getPayPalConfig(supabase) {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("paypal_client_id, paypal_client_secret, paypal_mode")
+    .eq("id", 1)
+    .single();
+
+  if (error || !data?.paypal_client_id || !data?.paypal_client_secret) {
+    throw new Error("PayPal non configurato");
+  }
+
+  const mode = data.paypal_mode || "sandbox";
   const baseUrl = mode === "live"
     ? "https://api-m.paypal.com"
     : "https://api-m.sandbox.paypal.com";
 
-  if (!clientId || !clientSecret) {
-    throw new Error("PayPal non configurato");
-  }
-
   const resp = await fetch(`${baseUrl}/v1/oauth2/token`, {
     method: "POST",
     headers: {
-      "Authorization": "Basic " + btoa(`${clientId}:${clientSecret}`),
+      "Authorization": "Basic " + btoa(`${data.paypal_client_id}:${data.paypal_client_secret}`),
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: "grant_type=client_credentials",
@@ -38,8 +42,8 @@ async function getPayPalAccessToken() {
     throw new Error("Errore autenticazione PayPal");
   }
 
-  const data = await resp.json();
-  return { accessToken: data.access_token, baseUrl };
+  const tokendata = await resp.json();
+  return { accessToken: tokendata.access_token, baseUrl };
 }
 
 Deno.serve(async (req) => {
@@ -65,7 +69,6 @@ Deno.serve(async (req) => {
       return json({ error: "Non autenticato" }, 401);
     }
 
-    // Controlla se già pagato
     const { data: profile } = await supabase
       .from("profiles")
       .select("subscription_paid")
@@ -76,7 +79,6 @@ Deno.serve(async (req) => {
       return json({ error: "Già abbonato" }, 400);
     }
 
-    // Prezzo da settings
     const { data: settings } = await supabase
       .from("settings")
       .select("subscription_price, subscription_label")
@@ -86,7 +88,7 @@ Deno.serve(async (req) => {
     const price = Number(settings?.subscription_price || 25);
     const label = settings?.subscription_label || "Abbonamento Champions 2026/27";
 
-    const { accessToken, baseUrl } = await getPayPalAccessToken();
+    const { accessToken, baseUrl } = await getPayPalConfig(supabase);
 
     const origin = req.headers.get("origin") || "https://example.com";
 
@@ -122,18 +124,14 @@ Deno.serve(async (req) => {
     }
 
     const order = await orderResp.json();
-
     const approveLink = order.links?.find((l) => l.rel === "approve");
     if (!approveLink) {
       return json({ error: "Errore link PayPal" }, 502);
     }
 
-    return json({
-      orderId: order.id,
-      approveUrl: approveLink.href,
-    });
+    return json({ orderId: order.id, approveUrl: approveLink.href });
   } catch (err) {
     console.error("paypal-create-order error:", err);
-    return json({ error: "Errore durante la creazione dell'ordine" }, 500);
+    return json({ error: err.message || "Errore durante la creazione dell'ordine" }, 500);
   }
 });

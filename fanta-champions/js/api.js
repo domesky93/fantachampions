@@ -42,7 +42,7 @@ export async function getPlayers(force = false) {
 export function invalidatePlayers() { _players = null; _clubs = null; }
 
 export async function getSettings() {
-  return q(sb.from('settings').select('*').eq('id', 1).single());
+  return q(sb.from('settings_public').select('*').eq('id', 1).single());
 }
 
 export async function getMatchdays() {

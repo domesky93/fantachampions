@@ -1,3 +1,4 @@
+import { crestSvg, defaultCrest } from './crest.js';
 // Piccole utility per l'interfaccia
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
@@ -146,4 +147,34 @@ export function countdownHtml(deadline) {
 export function face(p, c1 = '#8a94a6', c2 = '#ffffff', cls = '') {
   if (!p?.photo_url) return `<span class="face no-photo ${cls}">${shirt(c1, c2)}</span>`;
   return `<span class="face ${cls}" style="--c1:${c1};--c2:${c2}">${shirt(c1, c2)}<img src="${esc(p.photo_url)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('no-photo');this.remove()"></span>`;
+}
+
+// Stemma della squadra di un utente: immagine caricata, stemma creato o stemma automatico
+export function teamBadge(p = {}, cls = '') {
+  const name = p.team_name || p.username || '?';
+  if (p.crest_url) return `<span class="badge ${cls}"><img src="${esc(p.crest_url)}" alt="" loading="lazy"></span>`;
+  return `<span class="badge ${cls}">${crestSvg(p.crest || defaultCrest(name))}</span>`;
+}
+
+// Foto profilo (o iniziali colorate se manca)
+export function userPhoto(p = {}, cls = '') {
+  if (p.avatar_url) return `<span class="avatar photo ${cls}"><img src="${esc(p.avatar_url)}" alt="" loading="lazy"></span>`;
+  return avatar(p.username || p.team_name || '?').replace('class="avatar"', `class="avatar ${cls}"`);
+}
+
+// Ritaglia/ridimensiona un'immagine scelta dall'utente prima di caricarla
+// mode "cover" = quadrato pieno (foto profilo), "contain" = intera su fondo trasparente (stemma)
+export async function resizeImage(file, size = 320, mode = 'cover') {
+  if (!file.type.startsWith('image/')) throw new Error('Scegli un file immagine (JPG, PNG o WEBP)');
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Immagine non leggibile')); i.src = url; });
+    const cv = document.createElement('canvas'); cv.width = cv.height = size;
+    const ctx = cv.getContext('2d');
+    const r = mode === 'cover' ? Math.max(size / img.width, size / img.height) : Math.min(size / img.width, size / img.height);
+    const w = img.width * r, h = img.height * r;
+    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+    const type = mode === 'cover' ? 'image/jpeg' : 'image/png';
+    return await new Promise((res) => cv.toBlob(res, type, 0.86));
+  } finally { URL.revokeObjectURL(url); }
 }
