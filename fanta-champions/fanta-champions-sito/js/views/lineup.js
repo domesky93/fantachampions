@@ -1,6 +1,6 @@
-import { sb, q, state, getMatchdays, getPlayers, getClubs, getSettings, getFixtures, fixturesByClub, pickCurrentMatchday, getSquad, squadSize } from '../api.js';
-import { $, $$, esc, roleBadge, shirt, face, fmtDate, fmtKick, fmtTime, fmtPts, countdown, toast, errMsg, openModal, norm, ROLE_NAME } from '../ui.js';
-import { clubColors, clubShort, clubDot } from '../clubs.js';
+import { sb, q, state, getMatchdays, getPlayers, getClubs, getSettings, getSquad, pickCurrentMatchday } from '../api.js';
+import { $, $$, esc, roleBadge, shirt, face, fmtDate, fmtPts, countdown, toast, errMsg, openModal, norm, ROLE_NAME } from '../ui.js';
+import { clubColors } from '../clubs.js';
 
 // "Lautaro Martínez" -> "L. Martínez" (nomi lunghi sul campo)
 const shortName = (n) => { const w = n.split(' '); return n.length > 11 && w.length > 1 ? `${w[0][0]}. ${w.slice(1).join(' ')}` : n; };
@@ -25,48 +25,23 @@ export async function renderLineup(app, params) {
   const uid = state.session.user.id;
   const [mds, players, clubs, settings, squad] = await Promise.all([getMatchdays(), getPlayers(), getClubs(), getSettings(), getSquad(uid)]);
   if (!mds.length) { app.innerHTML = '<div class="card">Nessuna giornata disponibile.</div>'; return; }
+  if (squadIds.size === 0) { app.innerHTML = '<div class="card"><h2>Rosa vuota</h2><p>Devi prima creare la tua rosa. Vai alla sezione <a href="#/rosa">Rosa</a>.</p></div>'; return; }
 
   const md = mds.find((m) => String(m.id) === params[0]) || pickCurrentMatchday(mds);
   const pById = new Map(players.map((p) => [p.id, p]));
   const cById = new Map(clubs.map((c) => [c.id, c]));
-  const open = md.status === 'aperta' && new Date(md.deadline) > Date.now();
-  // la formazione si sceglie solo tra i giocatori della propria rosa
   const squadIds = new Set(squad.players.map((r) => r.player_id));
-  const squadReady = settings.squad_p === undefined || squadIds.size >= squadSize(settings);
+  const squadPlayers = players.filter((p) => squadIds.has(p.id));
+  const open = md.status === 'aperta' && new Date(md.deadline) > Date.now();
 
-  // formazione salvata + eventuale risultato + partite reali della giornata
-  const [saved, fixtures] = await Promise.all([
-    q(sb.from('lineups').select('id,module,lineup_players(player_id,slot)').eq('user_id', uid).eq('matchday_id', md.id).maybeSingle()),
-    getFixtures(md.id),
-  ]);
-  const fxByClub = fixturesByClub(fixtures);
-
-  // Avversario del giocatore: "vs BRU" in casa, "@ BRU" in trasferta
-  const oppOf = (p) => fxByClub.get(p?.club_id);
-  const oppTag = (p) => {
-    if (!fixtures.length || !p) return '';
-    const o = oppOf(p);
-    if (!o) return '<span class="opp opp-none" title="La sua squadra non gioca in questa giornata">non gioca</span>';
-    return `<span class="opp ${o.home ? 'opp-home' : 'opp-away'}" title="${o.home ? 'In casa' : 'In trasferta'} contro ${esc(cById.get(o.opp)?.name || '')} · ${fmtKick(o.kickoff)}">${o.home ? 'vs' : '@'} ${esc(clubShort(cById.get(o.opp)))}</span>`;
-  };
-  const oppLong = (p) => {
-    const o = oppOf(p);
-    if (!fixtures.length || !p) return '';
-    if (!o) return '<span class="warn">non gioca questa giornata</span>';
-    return `${o.home ? 'vs' : '@'} ${esc(cById.get(o.opp)?.name || '')} · ${fmtKick(o.kickoff)}`;
-  };
+  // formazione salvata + eventuale risultato
+  const saved = await q(sb.from('lineups').select('id,module,lineup_players(player_id,slot)').eq('user_id', uid).eq('matchday_id', md.id).maybeSingle());
   const result = saved ? await q(sb.from('results').select('total,detail').eq('lineup_id', saved.id).maybeSingle()) : null;
 
   let module = saved?.module || '4-3-3';
   let sel = {}; // slot -> player_id
   saved?.lineup_players.forEach((lp) => { sel[lp.slot] = lp.player_id; });
   let dirty = false;
-  // giocatori non più in rosa (es. dopo il mercato) tolti dalla formazione aperta
-  if (open && settings.squad_p !== undefined && squadIds.size) {
-    const out = Object.entries(sel).filter(([, id]) => !squadIds.has(id));
-    out.forEach(([s]) => delete sel[s]);
-    if (out.length) { dirty = true; setTimeout(() => toast(`${out.length} giocator${out.length > 1 ? 'i tolti' : 'e tolto'}: non ${out.length > 1 ? 'sono' : 'è'} più nella tua rosa`, 'warn'), 300); }
-  }
 
   const fvBySlot = {};
   result?.detail.forEach((d) => { fvBySlot[d.slot] = d; });
@@ -104,7 +79,7 @@ export async function renderLineup(app, params) {
     return `<button class="token" data-slot="${slot}" ${open ? '' : 'data-ro'}>
       <span class="token-shirt ${p.photo_url ? 'has-photo' : ''}">${p.photo_url ? face(p, c1, c2, 'face-lg') : shirt(c1, c2)}${roleBadge(p.role)}${resultTag(slot)}</span>
       <span class="token-name">${esc(shortName(p.name))}</span>
-      <span class="token-meta">${esc(clubShort(club))}${open ? ` · ${p.price}` : ''}</span>${oppTag(p)}</button>`;
+      <span class="token-meta">${esc(club?.short || '')}${open ? ` · ${p.price}` : ''}</span></button>`;
   }
 
   // Riga della panchina
@@ -122,50 +97,18 @@ export async function renderLineup(app, params) {
     return `<button class="brow ${r?.status === 'entrato' ? 'brow-in' : ''}" data-slot="${slot}" ${open ? '' : 'data-ro'}>
       <span class="brow-n">${BENCH_LABEL[slot]}</span>${roleBadge(p.role)}
       ${face(p, c1, c2, 'face-sm')}
-      <span class="brow-name"><b>${esc(p.name)}</b><small>${esc(club?.name || '')}${fixtures.length ? ` · ${oppLong(p)}` : ''}</small></span>
+      <span class="brow-name"><b>${esc(p.name)}</b><small>${esc(club?.name || '')}</small></span>
       ${r ? `<span class="brow-fv ${r.fv == null ? 'out' : ''}">${r.fv != null ? fmtPts(r.fv) : 's.v.'}${r.status === 'entrato' ? ' ▲' : ''}</span>` : `<span class="price-tag">${p.price}</span>`}
     </button>`;
   }
 
-  // Partite reali della giornata, con quanti giocatori miei ci sono per squadra
-  function fixturesCard() {
-    const mine = new Map();
-    Object.values(sel).forEach((id) => { const c = pById.get(id)?.club_id; if (c) mine.set(c, (mine.get(c) || 0) + 1); });
-    const side = (cid, right) => {
-      const c = cById.get(cid); const n = mine.get(cid);
-      const cnt = n ? `<span class="fx-mine" title="${n} tuoi giocatori">${n}</span>` : '';
-      return `<span class="fx-team ${right ? 'right' : ''}">${right ? cnt : ''}${clubDot(c?.name)}<span class="fx-name">${esc(c?.name || '?')}</span><span class="fx-short">${esc(clubShort(c))}</span>${right ? '' : cnt}</span>`;
-    };
-    let lastDay = '';
-    const rows = fixtures.map((f) => {
-      const day = new Date(f.kickoff).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
-      const head = day !== lastDay ? `<div class="fx-day">${esc(day)}</div>` : '';
-      lastDay = day;
-      const score = f.home_score != null && f.away_score != null ? `<b>${f.home_score} - ${f.away_score}</b>` : fmtTime(f.kickoff);
-      return `${head}<div class="fx-row ${mine.has(f.home_club_id) || mine.has(f.away_club_id) ? 'has-mine' : ''}">${side(f.home_club_id, false)}<span class="fx-mid">${score}</span>${side(f.away_club_id, true)}</div>`;
-    }).join('');
-    return `<div class="card fx-card"><div class="card-head"><h3>Partite della giornata</h3><a class="link" href="#/calendario/${md.id}">Calendario</a></div>
-      <p class="muted small">Il numero indica quanti tuoi giocatori ci sono in quella squadra.</p>${rows}</div>`;
-  }
-
   function draw() {
+    const spent = cost();
     const budget = settings.budget;
     const filled = Object.keys(sel).length;
     const [d, c, a] = MODULES[module];
     const row = (role) => `<div class="pitch-row">${startersOf(module, role).map(card).join('')}</div>`;
-
-    if (open && !squadReady) {
-      app.innerHTML = `
-        <div class="lineup-head"><div class="md-pick">
-          <select id="md-select" class="md-select">${mds.map((m) => `<option value="${m.id}" ${m.id === md.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
-          <div class="md-info"><span class="live-dot"></span>Chiude tra <b id="cd">${countdown(md.deadline)}</b></div></div></div>
-        <div class="card squad-cta"><div><h2>Prima crea la tua rosa</h2>
-          <p class="muted">Compra ${squadSize(settings)} giocatori${budget ? ` con ${budget} crediti` : ''}: ogni giornata schiererai la formazione scegliendo tra loro.${squadIds.size ? ` Ora ne hai ${squadIds.size}.` : ''}</p></div>
-          <a class="btn btn-primary" href="#/rosa">Crea la rosa</a></div>
-        ${fixtures.length ? fixturesCard() : ''}`;
-      $('#md-select').onchange = (e) => { location.hash = `#/formazione/${e.target.value}`; };
-      return;
-    }
+    const left = budget ? budget - spent : null;
 
     app.innerHTML = `
       <div class="lineup-head">
@@ -179,7 +122,11 @@ export async function renderLineup(app, params) {
       ${open ? `
       <div class="lineup-tools card">
         <div class="modules" role="radiogroup" aria-label="Modulo">${Object.keys(MODULES).map((m) => `<button class="mod ${m === module ? 'active' : ''}" data-mod="${m}" role="radio" aria-checked="${m === module}">${m}</button>`).join('')}</div>
-        <div class="lineup-squad"><span class="muted small">Scegli dalla tua rosa di ${squadIds.size} giocatori</span><a class="link" href="#/rosa">Vedi rosa →</a></div>
+        <div class="budget ${budget && spent > budget ? 'over' : ''}">
+          <div class="budget-row"><span>Crediti</span><span><b>${spent}</b>${budget ? ` / ${budget}` : ''}</span></div>
+          ${budget ? `<div class="bar"><i style="width:${Math.min(100, spent / budget * 100)}%"></i></div>
+          <div class="budget-left">${left >= 0 ? `Ti restano <b>${left}</b> crediti` : `<b>Sforato di ${-left}</b> crediti`}</div>` : ''}
+        </div>
         <div class="toolbar-actions">
           <button class="btn btn-ghost btn-sm" id="copy-prev">↺ Copia precedente</button>
           <button class="btn btn-ghost btn-sm" id="clear">Svuota</button>
@@ -200,16 +147,14 @@ export async function renderLineup(app, params) {
         </div>
       </div>` : ''}
 
-      ${fixtures.length ? fixturesCard() : ''}
-
       ${open ? `
       <div class="save-bar">
         <div class="save-progress"><b>${filled}</b>/18 <span class="muted">${dirty ? '· <span class="warn">non salvata</span>' : saved ? '· <span class="ok">salvata ✓</span>' : ''}</span></div>
         <button class="btn btn-primary" id="save" ${filled < 18 ? 'disabled' : ''}>Salva formazione</button>
       </div>` : ''}
       <p class="muted small rules">${d} difensori · ${c} centrocampisti · ${a} attaccanti + portiere
-        ${settings.max_per_club ? ` · max ${settings.max_per_club} per squadra` : ''}
-        ${fixtures.length ? '<br><b>vs</b> = gioca in casa · <b>@</b> = gioca in trasferta' : ''}
+        ${settings.max_per_club ? ` · max ${settings.max_per_club} per squadra` : ''}${budget ? ` · budget ${budget} crediti` : ''}
+        · scegli solo dalla tua rosa
         ${players.some((x) => x.photo_url) ? '<br><a href="#/crediti">Foto: Wikimedia Commons · crediti</a>' : ''}</p>`;
 
     $('#md-select').onchange = (e) => { location.hash = `#/formazione/${e.target.value}`; };
@@ -247,7 +192,7 @@ export async function renderLineup(app, params) {
     const p = prev[0];
     module = p.module; sel = {};
     let skipped = 0;
-    p.lineup_players.forEach((lp) => { if (pById.get(lp.player_id)?.active !== false && (settings.squad_p === undefined || squadIds.has(lp.player_id))) sel[lp.slot] = lp.player_id; else skipped++; });
+    p.lineup_players.forEach((lp) => { if (pById.get(lp.player_id)?.active && squadIds.has(lp.player_id)) sel[lp.slot] = lp.player_id; else skipped++; });
     dirty = true; draw();
     toast(skipped ? `Copiata (${skipped} giocatori non più disponibili)` : 'Formazione copiata');
   }
@@ -256,12 +201,9 @@ export async function renderLineup(app, params) {
     const role = slotRole(slot, module);
     const current = pById.get(sel[slot]);
     const chosen = new Set(Object.values(sel));
-    const inSquad = (p) => settings.squad_p === undefined || squadIds.has(p.id);
-    const clubOpts = clubs.filter((c) => players.some((p) => p.club_id === c.id && p.role === role && inSquad(p))).map((c) => {
-      const o = fxByClub.get(c.id);
-      const vs = !fixtures.length ? '' : o ? ` (${o.home ? 'vs' : '@'} ${clubShort(cById.get(o.opp))})` : ' (non gioca)';
-      return `<option value="${c.id}">${esc(c.name + vs)}</option>`;
-    }).join('');
+    const counts = clubCount(slot);
+    const remaining = settings.budget ? settings.budget - cost() + (current?.price || 0) : Infinity;
+    const clubOpts = clubs.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
 
     const { el, close } = openModal(`${slot > 11 ? 'Panchina' : 'Titolare'} · ${ROLE_NAME[role]}`, `
       ${current ? `<div class="current">Attuale: ${roleBadge(current.role)} <b>${esc(current.name)}</b> <button class="btn btn-ghost btn-sm" id="remove">Rimuovi</button></div>` : ''}
@@ -270,25 +212,26 @@ export async function renderLineup(app, params) {
         <select id="f-club"><option value="">Tutte le squadre</option>${clubOpts}</select>
         <select id="f-sort"><option value="pd">Prezzo ↓</option><option value="pa">Prezzo ↑</option><option value="n">Nome</option></select>
       </div>
-      <p class="muted small">Scegli tra i giocatori della tua rosa · <a class="link" href="#/rosa">vedi rosa</a></p>
+      ${settings.budget ? `<p class="muted small">Puoi spendere fino a <b>${remaining}</b> crediti per questo slot.</p>` : ''}
       <div class="plist" id="plist"></div>`);
 
     const list = () => {
       const qs = norm($('#f-q', el).value);
       const club = +$('#f-club', el).value;
       const sort = $('#f-sort', el).value;
-      let rows = players.filter((p) => p.role === role && inSquad(p) && (!club || p.club_id === club) && (!qs || norm(p.name).includes(qs)));
+      let rows = squadPlayers.filter((p) => p.role === role && p.active && (!club || p.club_id === club) && (!qs || norm(p.name).includes(qs)));
       rows.sort(sort === 'n' ? (a, b) => a.name.localeCompare(b.name) : sort === 'pa' ? (a, b) => a.price - b.price : (a, b) => b.price - a.price);
-      if (fixtures.length) rows.sort((a, b) => (oppOf(a) ? 0 : 1) - (oppOf(b) ? 0 : 1)); // chi non gioca in fondo
       const total = rows.length; rows = rows.slice(0, 150);
       $('#plist', el).innerHTML = rows.map((p) => {
-        const taken = chosen.has(p.id) && p.id !== current?.id;
-        const why = taken ? 'già schierato' : '';
-        return `<button class="prow" data-id="${p.id}" ${taken ? 'disabled' : ''}>
-          ${face(p, ...clubColors(cById.get(p.club_id)?.name), 'face-sm')}${roleBadge(p.role)}<span class="prow-name"><b>${esc(p.name)}</b><small>${esc(cById.get(p.club_id)?.name || '')}${fixtures.length ? ` · ${oppLong(p)}` : ''}</small></span>
-          ${why ? `<span class="why">${why}</span>` : oppTag(p)}<span class="price">${p.price}</span></button>`;
+        let why = '';
+        if (chosen.has(p.id) && p.id !== current?.id) why = 'già schierato';
+        else if (p.price > remaining) why = 'budget';
+        else if (settings.max_per_club && (counts.get(p.club_id) || 0) >= settings.max_per_club) why = `max ${settings.max_per_club} per squadra`;
+        return `<button class="prow" data-id="${p.id}" ${why ? 'disabled' : ''}>
+          ${face(p, ...clubColors(cById.get(p.club_id)?.name), 'face-sm')}${roleBadge(p.role)}<span class="prow-name"><b>${esc(p.name)}</b><small>${esc(cById.get(p.club_id)?.name || '')}</small></span>
+          ${why ? `<span class="why">${why}</span>` : ''}<span class="price">${p.price}</span></button>`;
       }).join('') + (total > 150 ? `<p class="muted small center">Mostrati 150 su ${total}: usa la ricerca o il filtro squadra.</p>` : '')
-        + (!total ? '<p class="muted center">Nessun giocatore della tua rosa per questo ruolo.</p>' : '');
+        + (!total ? '<p class="muted center">Nessun giocatore trovato.</p>' : '');
       $$('.prow', el).forEach((b) => b.onclick = () => { sel[slot] = +b.dataset.id; dirty = true; close(); draw(); });
     };
     ['#f-q', '#f-club', '#f-sort'].forEach((s) => $(s, el).addEventListener('input', list));
@@ -304,7 +247,6 @@ export async function renderLineup(app, params) {
       ${face(p, c1, c2, 'face-xl')}
       <div><p>${roleBadge(p.role)} <b>${esc(ROLE_NAME[p.role])}</b> · ${esc(club?.name || '')}</p>
       <p class="muted">${p.price} crediti</p>
-      ${fixtures.length ? `<p>Partita: <b>${oppLong(p)}</b></p>` : ''}
       ${r ? `<p>Voto <b>${r.voto ?? 's.v.'}</b> · Fantavoto <b>${r.fv != null ? fmtPts(r.fv) : '–'}</b></p>` : ''}
       ${p.photo_credit ? `<p class="photo-credit">Foto: <a href="${esc(p.photo_page || '#')}" target="_blank" rel="noopener">${esc(p.photo_credit)}</a></p>` : ''}</div></div>`);
   }

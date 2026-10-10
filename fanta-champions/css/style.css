@@ -530,3 +530,17 @@ input[type=file] { padding: 8px; background: var(--soft); }
 /* nav con piu voci: padding ridotto */
 .nav a { padding: 9px 10px; gap: 6px; }
 @media (max-width: 1280px) { .top-user-link > span { display: none; } .top-user-link { padding: 4px; } }
+
+/* ------------------------------------------------------------ abbonamento */
+.sub-card { border-width: 2px; }
+.sub-unpaid { border-color: var(--gold); background: linear-gradient(135deg, #fffdf5, #fff9e6); }
+.sub-paid { border-color: #bbf0cf; background: #ecfdf3; }
+.sub-status { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.sub-status p { margin: 0; }
+.sub-badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: .9rem; padding: 6px 14px; border-radius: 999px; }
+.sub-badge.ok { background: #dcfce7; color: #15803d; }
+.sub-badge.warn { background: #fef3c7; color: #92400e; }
+.sub-block { text-align: center; max-width: 480px; margin: 40px auto; padding: 32px 24px; }
+.sub-block h2 { font-size: 1.3rem; margin-bottom: 10px; }
+.sub-block p { margin-bottom: 18px; color: var(--muted); }
+.sub-block .btn { margin: 0 auto; }

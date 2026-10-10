@@ -1,4 +1,4 @@
-import { sb, q, state, getMatchdays, getPlayers, getClubs, getSettings, pickCurrentMatchday } from '../api.js';
+import { sb, q, state, getMatchdays, getPlayers, getClubs, getSettings, getSquad, pickCurrentMatchday } from '../api.js';
 import { $, $$, esc, roleBadge, shirt, face, fmtDate, fmtPts, countdown, toast, errMsg, openModal, norm, ROLE_NAME } from '../ui.js';
 import { clubColors } from '../clubs.js';
 
@@ -23,12 +23,15 @@ const startersOf = (module, role) => Array.from({ length: 11 }, (_, i) => i + 1)
 
 export async function renderLineup(app, params) {
   const uid = state.session.user.id;
-  const [mds, players, clubs, settings] = await Promise.all([getMatchdays(), getPlayers(), getClubs(), getSettings()]);
+  const [mds, players, clubs, settings, squad] = await Promise.all([getMatchdays(), getPlayers(), getClubs(), getSettings(), getSquad(uid)]);
   if (!mds.length) { app.innerHTML = '<div class="card">Nessuna giornata disponibile.</div>'; return; }
+  if (squadIds.size === 0) { app.innerHTML = '<div class="card"><h2>Rosa vuota</h2><p>Devi prima creare la tua rosa. Vai alla sezione <a href="#/rosa">Rosa</a>.</p></div>'; return; }
 
   const md = mds.find((m) => String(m.id) === params[0]) || pickCurrentMatchday(mds);
   const pById = new Map(players.map((p) => [p.id, p]));
   const cById = new Map(clubs.map((c) => [c.id, c]));
+  const squadIds = new Set(squad.players.map((r) => r.player_id));
+  const squadPlayers = players.filter((p) => squadIds.has(p.id));
   const open = md.status === 'aperta' && new Date(md.deadline) > Date.now();
 
   // formazione salvata + eventuale risultato
@@ -151,6 +154,7 @@ export async function renderLineup(app, params) {
       </div>` : ''}
       <p class="muted small rules">${d} difensori · ${c} centrocampisti · ${a} attaccanti + portiere
         ${settings.max_per_club ? ` · max ${settings.max_per_club} per squadra` : ''}${budget ? ` · budget ${budget} crediti` : ''}
+        · scegli solo dalla tua rosa
         ${players.some((x) => x.photo_url) ? '<br><a href="#/crediti">Foto: Wikimedia Commons · crediti</a>' : ''}</p>`;
 
     $('#md-select').onchange = (e) => { location.hash = `#/formazione/${e.target.value}`; };
@@ -188,7 +192,7 @@ export async function renderLineup(app, params) {
     const p = prev[0];
     module = p.module; sel = {};
     let skipped = 0;
-    p.lineup_players.forEach((lp) => { if (pById.get(lp.player_id)?.active) sel[lp.slot] = lp.player_id; else skipped++; });
+    p.lineup_players.forEach((lp) => { if (pById.get(lp.player_id)?.active && squadIds.has(lp.player_id)) sel[lp.slot] = lp.player_id; else skipped++; });
     dirty = true; draw();
     toast(skipped ? `Copiata (${skipped} giocatori non più disponibili)` : 'Formazione copiata');
   }
@@ -215,7 +219,7 @@ export async function renderLineup(app, params) {
       const qs = norm($('#f-q', el).value);
       const club = +$('#f-club', el).value;
       const sort = $('#f-sort', el).value;
-      let rows = players.filter((p) => p.role === role && p.active && (!club || p.club_id === club) && (!qs || norm(p.name).includes(qs)));
+      let rows = squadPlayers.filter((p) => p.role === role && p.active && (!club || p.club_id === club) && (!qs || norm(p.name).includes(qs)));
       rows.sort(sort === 'n' ? (a, b) => a.name.localeCompare(b.name) : sort === 'pa' ? (a, b) => a.price - b.price : (a, b) => b.price - a.price);
       const total = rows.length; rows = rows.slice(0, 150);
       $('#plist', el).innerHTML = rows.map((p) => {

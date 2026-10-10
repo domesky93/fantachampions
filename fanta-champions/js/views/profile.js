@@ -1,9 +1,14 @@
 import { sb, q, state, loadProfile } from '../api.js';
 import { $, esc, toast, errMsg, avatar } from '../ui.js';
+import { SUPABASE_URL } from '../config.js';
 
 export async function renderProfile(app) {
   const p = state.profile;
   const name = () => p.team_name || p.username;
+  const paid = p.subscription_paid;
+  const paidDate = p.subscription_paid_at
+    ? new Date(p.subscription_paid_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
 
   app.innerHTML = `
     <section class="profile-hero">
@@ -13,6 +18,23 @@ export async function renderProfile(app) {
         <h1 class="hero-title">${esc(name())}</h1>
         <div class="hero-sub">${esc(p.username)}${p.is_admin ? ' · Amministratore' : ''}</div>
       </div>
+    </section>
+
+    <section class="card sub-card ${paid ? 'sub-paid' : 'sub-unpaid'}">
+      <div class="card-head"><h2>Abbonamento Champions 2026/27</h2></div>
+      ${paid ? `
+        <div class="sub-status">
+          <span class="sub-badge ok">Abbonato</span>
+          <p class="muted small">Pagamento confermato${paidDate ? ` il ${paidDate}` : ''}. Valido per tutta la durata della manifestazione.</p>
+        </div>
+      ` : `
+        <div class="sub-status">
+          <span class="sub-badge warn">Non abbonato</span>
+          <p>Per creare la rosa e schierare le formazioni serve l'abbonamento unico di <b>25€</b>, valido per tutta la Champions League 2026/27.</p>
+          <button class="btn btn-gold btn-block" id="pay-paypal">Paga 25€ con PayPal</button>
+          <p class="muted small" id="pay-wait" style="display:none">Reindirizzamento a PayPal…</p>
+        </div>
+      `}
     </section>
 
     <div class="profile-grid">
@@ -81,4 +103,55 @@ export async function renderProfile(app) {
   };
 
   $('#logout').onclick = () => sb.auth.signOut();
+
+  const payBtn = $('#pay-paypal');
+  if (payBtn) {
+    payBtn.onclick = async () => {
+      payBtn.disabled = true;
+      $('#pay-wait').style.display = 'block';
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/paypal-create-order`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Errore PayPal');
+        window.location.href = data.approveUrl;
+      } catch (err) {
+        toast(errMsg(err), 'err');
+        payBtn.disabled = false;
+        $('#pay-wait').style.display = 'none';
+      }
+    };
+  }
+
+  // Gestione ritorno da PayPal
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('paypal') === 'ok') {
+    const orderId = params.get('token') || params.get('orderId');
+    if (orderId) {
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/paypal-capture`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ orderId }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Errore conferma');
+        await loadProfile();
+        toast('Abbonamento attivo!');
+        document.dispatchEvent(new Event('profile-changed'));
+      } catch (err) {
+        toast('Pagamento in elaborazione: se non si attiva entro qualche minuto, riprova', 'warn');
+      }
+    }
+  }
 }

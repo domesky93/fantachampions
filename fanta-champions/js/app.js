@@ -79,6 +79,16 @@ async function router() {
   if (!state.session) { await renderLogin(app); return; }
 
   const view = routes[path] || renderHome;
+  const blockedRoutes = ['rosa', 'formazione'];
+  if (blockedRoutes.includes(path) && !state.profile?.subscription_paid && !state.profile?.is_admin) {
+    app.innerHTML = `<div class="card sub-block">
+      <h2>Abbonamento necessario</h2>
+      <p>Per creare la rosa e schierare le formazioni serve l'abbonamento unico di <b>25€</b>, valido per tutta la Champions League 2026/27.</p>
+      <a class="btn btn-gold" href="#/profilo">Paga l'abbonamento</a>
+    </div>`;
+    return;
+  }
+
   app.innerHTML = '<div class="loading"><span class="spinner"></span></div>';
   try {
     cleanup = await view(app, params.map(decodeURIComponent));

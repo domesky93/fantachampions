@@ -21,7 +21,12 @@ export async function renderHome(app) {
   const lastPos = myLast ? lastResults.findIndex((r) => Number(r.total) <= Number(myLast.total)) + 1 : null;
 
   const pending = open && !myLineup;
+  const needsSub = !state.profile?.subscription_paid && !state.profile?.is_admin;
   app.innerHTML = `
+    ${needsSub ? `<div class="notice notice-gold sub-notice">
+      <b>Abbonamento richiesto</b> — 25€ per tutta la Champions 2026/27. 
+      <a href="#/profilo" class="link">Paga ora</a>
+    </div>` : ''}
     <section class="hero ${pending ? 'hero-alert' : ''}">
       <div class="hero-top">
         <div>

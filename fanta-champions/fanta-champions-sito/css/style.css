@@ -461,93 +461,23 @@ input[type=file] { padding: 8px; background: var(--soft); }
 .profile-actions { display: flex; justify-content: space-between; align-items: center; }
 @media (max-width: 860px) { .credit-row { flex-wrap: wrap; } .credit-name { width: auto; flex: 1; } .credit-src { flex-basis: 100%; padding-left: 44px; } }
 
-/* ------------------------------------------------------------ stemmi e foto profilo */
-.badge { flex: none; display: inline-grid; place-items: center; width: 34px; height: 40px; }
-.badge .crest, .badge img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(15,27,51,.25)); }
-.badge-sm { width: 26px; height: 31px; }
-.badge-md { width: 32px; height: 38px; }
-.badge-xl { width: 116px; height: 138px; }
-.avatar.photo { overflow: hidden; background: var(--soft); }
-.avatar.photo img { width: 100%; height: 100%; object-fit: cover; }
-.avatar-sm { width: 28px; height: 28px; font-size: .62rem; }
-.avatar-lg { width: 84px; height: 84px; font-size: 1.4rem; }
-.avatar-xl { width: 64px; height: 64px; font-size: 1.1rem; box-shadow: 0 0 0 3px #fff, 0 6px 16px rgba(0,0,0,.35); }
-.top-user-link { gap: 8px; padding: 3px 4px 3px 8px; }
-
-.profile-hero {
-  display: flex; align-items: center; gap: 22px; border-radius: 22px; padding: 22px 24px; margin-bottom: 16px; color: #fff;
-  background: radial-gradient(500px 220px at 100% 0%, rgba(47,107,255,.55), transparent 70%), linear-gradient(135deg, var(--navy), var(--navy2));
-  box-shadow: 0 14px 40px -14px rgba(11,31,75,.6);
-}
-.ph-badges { position: relative; flex: none; }
-.ph-badges .avatar-xl { position: absolute; right: -18px; bottom: -6px; }
-.ph-text { min-width: 0; }
-.ph-text .hero-title { overflow-wrap: anywhere; }
-.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.photo-edit, .crest-upload { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-.photo-edit-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1; min-width: 200px; }
-.photo-edit-actions p { flex-basis: 100%; margin: 0; }
-.file-btn { cursor: pointer; }
-.file-btn:focus-within { outline: 3px solid rgba(47,107,255,.4); }
-
-.crest-card .card-head { flex-wrap: wrap; align-items: center; }
-.tabs-sm { margin: 0; padding: 3px; }
-.tabs-sm .tab { padding: 6px 12px; font-size: .8rem; }
-.crest-editor { display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: start; }
-.crest-preview { position: sticky; top: 80px; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px; border-radius: 18px; background: repeating-linear-gradient(180deg, #2f9a47 0 28px, #2a8d41 28px 56px); }
-.crest-big { width: 170px; height: 204px; filter: drop-shadow(0 10px 18px rgba(0,0,0,.35)); }
-.crest-preview-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.crest-preview .btn-ghost { background: rgba(255,255,255,.9); }
-.crest-controls { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-.ctrl h3 { margin-bottom: 8px; }
-.opts { display: flex; gap: 8px; flex-wrap: wrap; }
-.opt { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 72px; padding: 8px 4px 6px; border-radius: 12px; border: 2px solid var(--line); background: #fff; cursor: pointer; font: inherit; font-size: .7rem; font-weight: 700; color: var(--muted); }
-.opt .crest { width: 34px; height: 41px; }
-.opt:hover { border-color: var(--blue2); }
-.opt.active { border-color: var(--navy); color: var(--navy); background: #eef3ff; box-shadow: 0 0 0 2px rgba(11,31,75,.12); }
-.color-rows { display: flex; flex-direction: column; gap: 10px; }
-.color-rows > div { display: flex; flex-direction: column; gap: 5px; }
-.swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.sw { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; background: var(--c); box-shadow: 0 0 0 1px var(--line); cursor: pointer; padding: 0; }
-.sw.active { box-shadow: 0 0 0 3px var(--navy); }
-.sw-custom { margin: 0; width: 28px; height: 28px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 1px var(--line); background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
-.sw-custom input { opacity: 0; width: 100%; height: 100%; cursor: pointer; border: 0; padding: 0; }
-.cr-text { width: 130px; font-family: var(--cond); font-weight: 800; font-size: 1.2rem; text-transform: uppercase; letter-spacing: .08em; }
-.profile-actions { margin-top: 4px; }
-
-@media (max-width: 860px) {
-  .profile-grid { grid-template-columns: 1fr; }
-  .profile-hero { padding: 18px; gap: 18px; }
-  .badge-xl { width: 86px; height: 103px; }
-  .avatar-xl { width: 48px; height: 48px; }
-  .crest-editor { grid-template-columns: 1fr; }
-  .crest-preview { position: static; }
-  .opt { width: calc(25% - 6px); }
-}
-
 /* ------------------------------------------------------------ calendario / avversari */
 .opp { display: inline-block; font-size: .62rem; font-weight: 800; letter-spacing: .02em; line-height: 1; padding: 3px 6px; border-radius: 999px; white-space: nowrap; }
 .token .opp { margin-top: 1px; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
 .opp-home { background: #fff; color: var(--navy); }
 .opp-away { background: var(--navy); color: #fff; }
 .opp-none { background: var(--err); color: #fff; }
-.hero-link { color: var(--gold2); font-weight: 600; }
-
 .fx-card { margin-top: 16px; }
 .fx-day { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 6px; }
 .fx-day:first-of-type { margin-top: 4px; }
 .fx-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--soft); margin-bottom: 4px; border: 1.5px solid transparent; }
-.fx-row.has-mine { background: #f0f5ff; border-color: #c9d9ff; }
 .fx-team { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; font-size: .9rem; }
 .fx-team.right { justify-content: flex-end; text-align: right; }
 .fx-team.right .club-dot { order: 2; }
-.fx-team.right .fx-name, .fx-team.right .fx-short { order: 1; }
-.fx-team.right .fx-mine { order: 0; }
 .fx-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fx-short { display: none; font-family: var(--cond); font-weight: 800; font-size: 1.05rem; }
 .fx-mid { font-family: var(--cond); font-weight: 800; font-size: 1.05rem; color: var(--navy); background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 1px 10px; min-width: 62px; text-align: center; font-variant-numeric: tabular-nums; }
-.fx-mid.played, .fx-mid b { color: var(--text); }
-.fx-mine { flex: none; display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--blue); color: #fff; font-size: .7rem; font-weight: 800; }
+.fx-mid.played { color: var(--text); }
 .club-dot { flex: none; width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, var(--c1) 0 55%, var(--c2) 55% 100%); box-shadow: 0 0 0 1px rgba(15,27,51,.18); }
 .fx-foot { margin-top: 14px; display: flex; justify-content: flex-end; }
 @media (max-width: 860px) {
@@ -577,10 +507,40 @@ input[type=file] { padding: 8px; background: var(--soft); }
 .sq-del { width: 28px; height: 28px; font-size: .8rem; flex: none; }
 .sq-del:hover { background: #fdecec; color: var(--err); }
 .sq-card .brow { margin-top: 4px; }
-.squad-cta { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 @media (max-width: 520px) { .sq-row .opp { display: none; } }
-.lineup-squad { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
-/* barra in alto: con "Rosa" i link sono di più */
+
+/* ------------------------------------------------------------ profilo */
+.profile-hero {
+  display: flex; align-items: center; gap: 22px; border-radius: 22px; padding: 22px 24px; margin-bottom: 16px; color: #fff;
+  background: radial-gradient(500px 220px at 100% 0%, rgba(47,107,255,.55), transparent 70%), linear-gradient(135deg, var(--navy), var(--navy2));
+  box-shadow: 0 14px 40px -14px rgba(11,31,75,.6);
+}
+.ph-badges { position: relative; flex: none; }
+.ph-badges .avatar { width: 64px; height: 64px; font-size: 1.4rem; box-shadow: 0 0 0 3px rgba(255,255,255,.3); }
+.ph-text { min-width: 0; }
+.ph-text .hero-title { overflow-wrap: anywhere; }
+.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.divider { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
+.profile-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+@media (max-width: 860px) {
+  .profile-grid { grid-template-columns: 1fr; }
+  .profile-hero { padding: 18px; gap: 18px; }
+}
+
+/* nav con piu voci: padding ridotto */
 .nav a { padding: 9px 10px; gap: 6px; }
-.nav a[href="#/profilo"] { display: none; } /* il profilo si apre dal riquadro utente a destra */
 @media (max-width: 1280px) { .top-user-link > span { display: none; } .top-user-link { padding: 4px; } }
+
+/* ------------------------------------------------------------ abbonamento */
+.sub-card { border-width: 2px; }
+.sub-unpaid { border-color: var(--gold); background: linear-gradient(135deg, #fffdf5, #fff9e6); }
+.sub-paid { border-color: #bbf0cf; background: #ecfdf3; }
+.sub-status { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.sub-status p { margin: 0; }
+.sub-badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: .9rem; padding: 6px 14px; border-radius: 999px; }
+.sub-badge.ok { background: #dcfce7; color: #15803d; }
+.sub-badge.warn { background: #fef3c7; color: #92400e; }
+.sub-block { text-align: center; max-width: 480px; margin: 40px auto; padding: 32px 24px; }
+.sub-block h2 { font-size: 1.3rem; margin-bottom: 10px; }
+.sub-block p { margin-bottom: 18px; color: var(--muted); }
+.sub-block .btn { margin: 0 auto; }
